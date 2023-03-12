@@ -802,10 +802,30 @@ func idToItem(item_id int) (short_name string, err error) {
 func needsAmmoWhatType(item_name string) (needs_ammo bool, ammo_name string, amount int64, err error) {
 	ammo_name = ""
 	weaponToAmmoType := map[string]string{
-		"rifle.ak": "ammo.rifle",
+		"rifle.ak":                "ammo.rifle",
+		"rifle.ak.ice":            "ammo.rifle",
+		"smg.mp5":                 "ammo.pistol",
+		"smg.thompson":            "ammo.pistol",
+		"pistol.python":           "ammo.pistol",
+		"pistol.prototype17":      "ammo.pistol",
+		"pistol.nailgun":          "ammo.nailgun.nails",
+		"shotgun.waterpipe":       "ammo.shotgun",
+		"shotgun.pump":            "ammo.shotgun",
+		"snowballgun":             "snowball",
+		"speargun":                "speargun.spear",
+		"gun.water":               "water",
+		"pistol.water":            "water",
+		"multiplegrenadelauncher": "ammo.grenadelauncher.he",
 	}
 	weaponToAmmoAmount := map[string]int64{
-		"rifle.ak": 10,
+		"rifle.ak":                10,
+		"ammo.pistol":             20,
+		"ammo.nailgun.nails":      20,
+		"ammo.shotgun":            6,
+		"snowball":                10,
+		"speargun.spear":          1,
+		"water":                   100,
+		"ammo.grenadelauncher.he": 6,
 	}
 	var ok bool
 	ammo_name, ok = weaponToAmmoType[item_name]

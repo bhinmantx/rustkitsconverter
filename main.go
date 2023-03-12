@@ -13,8 +13,8 @@ func main() {
 	flag.Parse()
 
 	fmt.Println(oldkits_filename)
-	//extracted := extractOldKits(*oldkits_filename)
-	extractOldKits(oldkits_filename)
+
+	extracted := extractOldKits(oldkits_filename)
 	fmt.Println(output_filename)
-	//convertOldtoNew(extracted, *output_filename)
+	convertOldtoNew(extracted, output_filename)
 }
