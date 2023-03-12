@@ -100,7 +100,7 @@ func convertOldtoNew(kits map[string]OldKit, output_filename string) (newKits ma
 func extractOldKits(oldkits_filename string) (kits map[string]OldKit) {
 
 	filedata, err := ioutil.ReadFile(oldkits_filename)
-	fmt.Println(len(filedata))
+	fmt.Println(fmt.Sprintf("%s", filedata))
 	if err != nil {
 		panic(err)
 	}
