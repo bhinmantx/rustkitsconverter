@@ -131,33 +131,12 @@ func extractOldKits(oldkits_filename string) (kits map[string]OldKit) {
 
 			fieldTag := getStructTag(OldKitval.Type().Field(i), "json") //json:"description"
 
-			//			fieldKind := OldKitval.Field(i).Kind() //string
-
-			//fmt.Println("fieldName ", fieldName, "fieldTag", fieldTag, "fieldkind", fieldKind)
-
-			//			valFROMFILE := reflect.Indirect(reflect.ValueOf((element.(map[string]interface{})[fieldTag])))
-			//	fmt.Println("field tag", fieldTag, "valFROMFILE", valFROMFILE)
-			//fmt.Println("valfromfile.kind()", valFROMFILE.Kind())
 			if element.(map[string]interface{})[fieldTag] != nil {
-				fmt.Println()
-
-				fmt.Println("type of element by tag", reflect.TypeOf(element.(map[string]interface{})[fieldTag]))
-				//fmt.Println("element.fieldtag", element.(map[string]interface{})[fieldTag])
+				///A bit messy but need to deal with arbitrary data types AND positions in the arrays
 				if fieldTag == "items" {
-
-					// /var kititems := make([]OldKitItem,len)
-					//We have to assert/cast this to be an array. Let's see if the length still works!
-					//	items := make([]*OldKitItem, len(element.(map[string]interface{})[fieldTag].([]interface{})))
-					//	fmt.Println(items)
-					////	fmt.Println(element.(map[string]interface{})[fieldTag].([]interface{}))
-					//fmt.Println(len(element.(map[string]interface{})[fieldTag].([]interface{})))
-					//					kititems := make([]OldKitItem, len(element.(map[string]interface{})[fieldTag].([]interface{})))
 					for _, item := range element.(map[string]interface{})[fieldTag].([]interface{}) {
-
 						kititem := OldKitItem{}
-
 						floatItemID := item.(map[string]interface{})["itemid"]
-
 						floatString := fmt.Sprintf("%.0f", floatItemID)
 						itemInt, err := strconv.Atoi(floatString)
 						if err != nil {
@@ -199,27 +178,12 @@ func extractOldKits(oldkits_filename string) (kits map[string]OldKit) {
 						kititem.Amount = amount
 						kititem.BlueprintTarget = blueprintTarget
 						kititem.Weapon = weapon
-						//item.(map[string]interface{})["itemid"]
-						//Let's just do it the hard way?
+
+						//Going to need to deal with nested items!
 						kititem.Mods = mods
-						//	fmt.Println(kititem)
+
 						kit.Items = append(kit.Items, kititem)
 					}
-					/*for i, row := range cr.Rows {
-					s := &Showcase{}
-					err := json.Unmarshal(*row[0], s)
-					if err != nil {
-						return items, err
-					}
-
-
-									ivp := &InvitedPerson{}
-					err := json.Unmarshal(*row[0], ivp)*/
-
-					//////////////////////OldKitval := reflect.Indirect(reflect.ValueOf(&kit)) ///this works!!!
-
-					//////////////////////numItemField := OldKitval.NumField()
-
 				} else {
 					//was getting some comparison errors. Might as well compare string to string
 					switch reflect.TypeOf(element.(map[string]interface{})[fieldTag]).String() {
@@ -239,73 +203,12 @@ func extractOldKits(oldkits_filename string) (kits map[string]OldKit) {
 		}
 
 		kits[key] = kit
-
 	}
-
-	jsonOutput := make(map[string]interface{})
-	jsonOutput["Kits"] = kits
-
-	file, err := json.MarshalIndent(jsonOutput, "", " ")
-	if err != nil {
-		panic(err)
-	}
-	_ = ioutil.WriteFile("test.json", file, 0644)
-
-	//////////////////////////////
-	//	fmt.Println(resultList2.(OldKit))
-
-	/*
-		fmt.Println("resultList2.(map[string]interface{})['akrat'].(map[string]interface{})")
-		fmt.Println(resultList2.(map[string]interface{})["akrat"].(map[string]interface{}))
-		fmt.Println("resultList2.(map[string]interface{})['akrat'].(map[string]interface{})['authlevel']")
-		fmt.Println(resultList2.(map[string]interface{})["akrat"].(map[string]interface{})["authlevel"])
-		//	log.Printf("INFO: resultList, %s", resultList)
-		/*for _, element := range resultList {
-
-		//		var kitThing OldKit
-		/*
-			fmt.Print("key type: ")
-			fmt.Println(reflect.TypeOf(key))
-			fmt.Print("Element type : ")
-			fmt.Println(reflect.TypeOf(element)) */ /*
-
-		fmt.Println(element.(OldKit))
-		//fmt.Println(element.(map[string]interface{})["name"])
-		fmt.Println(element.(map[string]interface{})["items"])
-
-		for key2, element2 := range element.(map[string]interface{})["items"].([]interface{}) {
-			fmt.Printf("key2 %d type: ", key2)
-			fmt.Println(reflect.TypeOf(key2))
-			fmt.Println("")
-			fmt.Printf("Element2 %s type : ", element)
-			fmt.Println(reflect.TypeOf(element2))
-		}
-		/*
-			for key2, element2 := range element {
-				fmt.Print("key: ")
-				fmt.Println(reflect.TypeOf(key2))
-				fmt.Print("Elment: ")
-				fmt.Println(reflect.TypeOf(element2))
-			}
-			/*
-				anotherElement := fmt.Sprintf("%s", element.(map[string]interface{}))
-				byteElement := []byte(anotherElement)
-				thirdElement := element.(map[string]interface{}) ///fmt.Sprintf("%s", element)
-				fmt.Println(thirdElement)
-				err := json.Unmarshal(byteElement, &kitThing)
-
-				if err != nil {
-					log.Printf("ERROR: %s fail to unmarshal nested JSON, %s", key, err.Error())
-				}
-
-	}*/
 
 	if err != nil {
-		log.Printf("ERROR: fail to unmarshla json, %s", err.Error())
+		log.Printf("ERROR: fail to unmarshal json, %s", err.Error())
 	}
-	//	log.Printf("INFO: jsonMap, %s", jsonMap)
 
-	// defer the closing of our jsonFile so that we can parse it later on
 	return
 }
 
@@ -320,28 +223,24 @@ func WhichContainer(wearing string, belt string, backpack string) string {
 
 }
 
+//For debugging
+//Userful since the old kit fields can be of arbitrary types
 func listStructFieldsAndTags(kit OldKit) {
 
 	val := reflect.Indirect(reflect.ValueOf(kit))
 	numField := val.NumField()
-	//s := reflect.ValueOf(kit).FieldByIndex()
+
 	for i := 0; i < numField; i++ {
-		//		fmt.Println("a field maybe:", val.Type().Field(i).Name)
+
 		fieldName := val.Type().Field(i).Name
 		fmt.Println(fieldName)
 		fieldTag := getStructTag(val.Type().Field(i), "json")
 
 		fmt.Println(fieldTag)
-		/*	field, ok := reflect.TypeOf(kit).Elem().FieldByName(fieldName)
-			if !ok {
-				panic("Field not found")
-			}
-			getStructTag(field, "json")
-			//val.Type().Field(i)*/
+
 	}
 }
 
 func getStructTag(f reflect.StructField, tagName string) string {
-
 	return string(f.Tag.Get(tagName))
 }
