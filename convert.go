@@ -61,7 +61,6 @@ func convertOldtoNew(kits map[string]OldKit, output_filename string) (newKits ma
 				new_kit_item.Ammotype = ammo_type
 				new_kit_item.Ammo = ammo_amount
 			}
-
 			//It is now necessary to check for kititems within kit items (mods for guns)
 			//And we have to move things to new nested positions
 			//new item types are used for "full" item types, i.e. tools and weapons
