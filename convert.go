@@ -9,34 +9,27 @@ import (
 	"strconv"
 )
 
-func main() {
-	extracted := extractOldKits()
-
-	convertOldtoNew(extracted)
-}
-
-func convertOldtoNew(kits map[string]OldKit) (newKits map[string]interface{}) {
+func convertOldtoNew(kits map[string]OldKit, output_filename string) (newKits map[string]interface{}) {
 	newKits = make(map[string]interface{}, len(kits))
-
-	////let's just do it the hard way!!!
+	////let's just do it the hard way!
+	////The old kits were based on 3 location designated by a field.
+	////We need to instead convert to 3 arrays for each location
 	for _, old_kit := range kits {
 		main_items := make([]KitItem, 0)
 		wear_items := make([]KitItem, 0)
 		belt_items := make([]KitItem, 0)
 
-		///and the positions!
-		//	var main_pos, wear_pos, belt_pos int64
 		var new_kit Kit
 
 		new_kit.Name = old_kit.Name
 		new_kit.Description = old_kit.Description
-		new_kit.RequiredPermission = "" //KNOWN ISSUE! I DON'T KNOW OLD PERMISSIONS VALUE TYPES!
+		new_kit.RequiredPermission = "" //KNOWN ISSUE! No good way currently to convert permissions
+		new_kit.RequiredAuth = 0        //Same as above
 		new_kit.MaximumUses = int64(old_kit.Max)
-		new_kit.RequiredAuth = 0                   //another known issue. Dunno permissions!
-		new_kit.Cooldown = int64(old_kit.Cooldown) //was float! now it's seconds.
+		new_kit.Cooldown = int64(old_kit.Cooldown) //Type conversion float to int for seconds.
 		new_kit.Cost = 0                           //You'll need to adjust costs yourself
 		new_kit.IsHidden = old_kit.Hide
-		new_kit.CopyPasteFile = "" //this is new so, blank
+		new_kit.CopyPasteFile = "" //this is new for the CopyPaste mod so it's always blank
 		new_kit.KitImage = old_kit.Image
 
 		//Now the nested stuff!
@@ -46,7 +39,8 @@ func convertOldtoNew(kits map[string]OldKit) (newKits map[string]interface{}) {
 			//old kit system used numeric ID's and so we need to convert it to the short-name
 			short_name, err := idToItem(old_kit_item.ItemID)
 			if err != nil {
-				fmt.Println("Error finding ID for %s %s", old_kit_item.ItemID, err.Error())
+				//cheating since we're not doing "real" logging
+				fmt.Println(fmt.Sprintf("Error finding ID for %s %s", old_kit_item.ItemID, err.Error()))
 				continue
 			}
 			new_kit_item.Shortname = short_name
@@ -57,13 +51,20 @@ func convertOldtoNew(kits map[string]OldKit) (newKits map[string]interface{}) {
 			new_kit_item.Condition = 100.0
 			new_kit_item.MaxCondition = 100.0
 
-			///TODO: Does it need ammo? what's the default ammo? what's the default amount?
-			//new_kit_item.Ammo =
+			///Does it need ammo? what's the default ammo? what's the default amount?
 
-			//What's hilarious is we also have to do items to KitItems!
-			//We have to move things to new nested positions
-			//new item types are use for "full" item types, i.e. tools and weapons
-			//But also mods on weapons!
+			needs_ammo, ammo_type, ammo_amount, err := needsAmmoWhatType(new_kit_item.Shortname)
+			if err != nil {
+				panic(err)
+			}
+			if needs_ammo {
+				new_kit_item.Ammotype = ammo_type
+				new_kit_item.Ammo = ammo_amount
+			}
+
+			//It is now necessary to check for kititems within kit items (mods for guns)
+			//And we have to move things to new nested positions
+			//new item types are used for "full" item types, i.e. tools and weapons
 			if old_kit_item.Container == ContainerBelt {
 				belt_items = append(belt_items, new_kit_item)
 			} else if old_kit_item.Container == ContainerMainBP {
@@ -86,15 +87,20 @@ func convertOldtoNew(kits map[string]OldKit) (newKits map[string]interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	_ = ioutil.WriteFile("newKits.json", file, 0644)
+	err = ioutil.WriteFile(output_filename, file, 0644)
+	//We should *NOT* attempt to recover from failed conversion as a bad kit file
+	// can have unexpected affects on Oxide mods
+	if err != nil {
+		panic(err)
+	}
 
 	return
 }
 
-func extractOldKits() (kits map[string]OldKit) {
+func extractOldKits(oldkits_filename string) (kits map[string]OldKit) {
 
-	filedata, err := ioutil.ReadFile("Kits.json")
-
+	filedata, err := ioutil.ReadFile(oldkits_filename)
+	fmt.Println(fmt.Sprintf("%s", filedata))
 	if err != nil {
 		panic(err)
 	}
@@ -104,8 +110,6 @@ func extractOldKits() (kits map[string]OldKit) {
 	err = json.Unmarshal(filedata, &jsonMap)
 
 	if err != nil {
-		fmt.Println("oops")
-
 		panic(err)
 	}
 
@@ -114,14 +118,10 @@ func extractOldKits() (kits map[string]OldKit) {
 
 	for key, element := range resultList {
 
-		//fmt.Println("key", key)
-
-		/*
-			for each of these, we want the kit fields.
-		*/
+		//Need to account for change in field names and positions
 		var kit OldKit
 		//Since we want to deal with arbitrary types
-		OldKitval := reflect.Indirect(reflect.ValueOf(&kit)) ///this works!!!
+		OldKitval := reflect.Indirect(reflect.ValueOf(&kit)) ///
 
 		numField := OldKitval.NumField()
 
@@ -139,10 +139,9 @@ func extractOldKits() (kits map[string]OldKit) {
 			//	fmt.Println("field tag", fieldTag, "valFROMFILE", valFROMFILE)
 			//fmt.Println("valfromfile.kind()", valFROMFILE.Kind())
 			if element.(map[string]interface{})[fieldTag] != nil {
-				//	fmt.Println()
-				//	fmt.Println()
-				//	fmt.Println()
-				//	fmt.Println("type of element by tag", reflect.TypeOf(element.(map[string]interface{})[fieldTag]))
+				fmt.Println()
+
+				fmt.Println("type of element by tag", reflect.TypeOf(element.(map[string]interface{})[fieldTag]))
 				//fmt.Println("element.fieldtag", element.(map[string]interface{})[fieldTag])
 				if fieldTag == "items" {
 
@@ -226,15 +225,12 @@ func extractOldKits() (kits map[string]OldKit) {
 					switch reflect.TypeOf(element.(map[string]interface{})[fieldTag]).String() {
 					case "float64":
 						OldKitval.FieldByName(fieldName).SetFloat(element.(map[string]interface{})[fieldTag].(float64))
-
 					case "int64":
-
 						OldKitval.FieldByName(fieldName).SetInt(element.(map[string]interface{})[fieldTag].(int64))
 					case "string":
 						OldKitval.FieldByName(fieldName).SetString(element.(map[string]interface{})[fieldTag].(string))
 					case "bool":
 						OldKitval.FieldByName(fieldName).SetBool(element.(map[string]interface{})[fieldTag].(bool))
-
 					default:
 						fmt.Println("default")
 					}
@@ -311,102 +307,6 @@ func extractOldKits() (kits map[string]OldKit) {
 
 	// defer the closing of our jsonFile so that we can parse it later on
 	return
-}
-
-func oldmain() {
-	/*
-		csv_file, err := os.Open("Oldkits.csv")
-		if err != nil {
-			fmt.Println(err)
-		}
-		defer csv_file.Close()
-		r := csv.NewReader(csv_file)
-		records, err := r.ReadAll()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		output := fmt.Sprintf("%+v", records)
-		fmt.Println(output)
-
-		var Oldkititem OldKitItem
-		var OldKitItems []OldKitItem
-		initialName := "Survivor 01"
-		for itemNumber, rec := range records {
-			if rec[0] != "" {
-				Oldkititem.KitName = rec[0]
-				initialName = rec[0]
-			} else {
-				Oldkititem.KitName = initialName
-			}
-			//		Oldkititem.OldKitName = rec[0]
-			itemID, _ := strconv.Atoi(rec[3])
-			Oldkititem.ItemID = itemID
-			if len(rec) > 5 {
-				Oldkititem.Container = WhichContainer(rec[4], rec[5], rec[6])
-				Oldkititem.Amount, _ = strconv.Atoi(rec[7])
-				if Oldkititem.Amount == 0 {
-					Oldkititem.Amount = 1
-				}
-			} else {
-				Oldkititem.Container = "skipped"
-			}
-			//defaulting to no mods for now
-			Oldkititem.Mods = []int{}
-
-			OldKitItems = append(OldKitItems, Oldkititem)
-			fmt.Println(itemNumber)
-		}
-
-		prevName := ""
-		i := 0
-		//j := 0
-
-		//var OldKits []*OldKit
-		tmap := make(map[string]interface{})
-		ourLimit := len(OldKitItems)
-		for i < len(OldKitItems) {
-			Oldkit := &OldKit{}
-			for OldKitItems[i].KitName == prevName {
-				Oldkit.Name = OldKitItems[i].KitName
-				Oldkit.Cooldown = 0.0
-				Oldkit.Items = append(Oldkit.Items, OldKitItems[i])
-				i++
-				if i == ourLimit {
-					tmap[Oldkit.Name] = Oldkit
-					//OldKits = append(OldKits, Oldkit)
-					break
-				}
-			}
-			if i < ourLimit {
-				fmt.Print("previous name was: " + prevName + "   ")
-				prevName = OldKitItems[i].KitName
-				fmt.Print("name is now: " + prevName)
-				fmt.Println(i)
-				//			OldKits = append(OldKits, Oldkit)
-				tmap[Oldkit.Name] = Oldkit
-			}
-
-		}
-
-		fmt.Println("Done")
-
-		json_data, err := json.MarshalIndent(tmap, "", "  ")
-		//json_data, err := json.Marshal(OldKits)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		output = fmt.Sprintf("%+s", json_data)
-		fmt.Println(output)
-		json_file, err := os.Create("sample.json")
-		if err != nil {
-			fmt.Println(err)
-		}
-		defer json_file.Close()
-
-		json_file.Write(json_data)
-		json_file.Close() */
 }
 
 func WhichContainer(wearing string, belt string, backpack string) string {
