@@ -796,12 +796,15 @@ func idToItem(item_id int) (short_name string, err error) {
 	return
 }
 
-func needsAmmoWhatType(item_name string) (needs_ammo bool, ammo_name string, amount int, err error) {
+//In order to account for ammo for different weapons, given the change to "contents" of an item
+//We need to turn the old kit name to the new ammo names. Going to stick with a default amount and basic ammo type for now
+//Also to deal with an arbitrary item name we need to decide if it even *needs* ammo
+func needsAmmoWhatType(item_name string) (needs_ammo bool, ammo_name string, amount int64, err error) {
 	ammo_name = ""
 	weaponToAmmoType := map[string]string{
 		"rifle.ak": "ammo.rifle",
 	}
-	weaponToAmmoAmount := map[string]int{
+	weaponToAmmoAmount := map[string]int64{
 		"rifle.ak": 10,
 	}
 	var ok bool
